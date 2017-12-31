@@ -1,6 +1,6 @@
 # encoding: UTF-8
 
-require 'test/unit'
+require 'minitest/autorun'
 begin
   require 'rack/mock'
   require 'rack/lint'
@@ -17,7 +17,7 @@ class DummyApp
   end
 end
 
-class RackCoffeeTest < Test::Unit::TestCase
+class RackCoffeeTest < Minitest::Test
 
   attr_reader :compiled_body_regex
 
@@ -78,14 +78,14 @@ class RackCoffeeTest < Test::Unit::TestCase
   def test_cache_control_defaults
     result = request({:cache_control => true}).get("/javascripts/test.js")
     cache = result.headers["Cache-Control"]
-    assert_not_nil cache
+    refute_nil cache
     assert_equal "max-age=86400", cache
   end
 
   def test_cache_control_with_options
     result = request({:cache_control => %w(300 public)}).get("/javascripts/test.js")
     cache = result.headers["Cache-Control"]
-    assert_not_nil cache
+    refute_nil cache
     assert_match /max-age=300/, cache
     assert_match /, public/, cache
   end
@@ -143,7 +143,7 @@ class RackCoffeeTest < Test::Unit::TestCase
       result = get.call('/javascripts/cache_compile.js')
       assert_equal 200, result.status
       mtime = Time.parse(result.headers['Last-Modified'])
-      assert_not_equal mtime, oldtime
+      refute_equal mtime, oldtime
       assert File.exist?(File.join(dir, "#{mtime.to_i}_cache_compile.coffee"))
     end
   end
@@ -158,9 +158,7 @@ class RackCoffeeTest < Test::Unit::TestCase
       dir = app.cache_compile_dir
       get.call('/javascripts/cache_compile.js')
       dir.rmtree
-      assert_nothing_raised Errno::ENOENT do
-        get.call('/javascripts/cache_compile.js')
-      end
+      get.call('/javascripts/cache_compile.js')
       assert dir.exist?
     end
   end
