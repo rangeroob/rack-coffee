@@ -8,29 +8,26 @@ require 'coffee_script'
 
 module Rack
   class Coffee
-
-    CACHE_CONTROL_TTL_DEFAULT = 86400
+    CACHE_CONTROL_TTL_DEFAULT = 86_400
 
     attr_accessor :app, :urls, :root, :cache_compile_dir,
-      :compile_without_closure, :concat_to_file, :cache_control
+                  :compile_without_closure, :concat_to_file, :cache_control
 
-    def initialize(app, opts={})
+    def initialize(app, opts = {})
       @app = app
       @urls = [opts.fetch(:urls, '/javascripts')].flatten
       @root = Pathname.new(opts.fetch(:root) { Dir.pwd })
-      set_cache_header_opts(opts.fetch(:cache_control, false))
+      cache_set_header_opts(opts.fetch(:cache_control, false))
       @concat_to_file = opts.fetch(:join, false)
       @concat_to_file += '.coffee' if @concat_to_file
       @cache_compile_dir = if opts.fetch(:cache_compile, false)
-        Pathname.new(Dir.mktmpdir)
-      else
-        nil
-      end
+                             Pathname.new(Dir.mktmpdir)
+                           end
       @compile_without_closure = opts.fetch(:bare, false)
     end
 
-    def set_cache_header_opts(given)
-      given = [given].flatten.map{|i| String(i) }
+    def cache_set_header_opts(given)
+      given = [given].flatten.map { |i| String(i) }
       return if ['false', ''].include?(given.first)
       ttl = given.first.to_i > 0 ? given.shift : CACHE_CONTROL_TTL_DEFAULT
       pub = given.first == 'public' ? ', public' : ''
@@ -45,7 +42,7 @@ module Rack
           cache_file.read
         else
           brewed = compile(file.read)
-          cache_file.open('w') {|f| f << brewed }
+          cache_file.open('w') { |f| f << brewed }
           brewed
         end
       else
@@ -54,15 +51,15 @@ module Rack
     end
 
     def compile(coffee)
-      CoffeeScript.compile coffee, {:bare => compile_without_closure }
+      CoffeeScript.compile coffee, bare: compile_without_closure
     end
 
     def not_modified
-      [304, {}, ["Not modified"]]
+      [304, {}, ['Not modified']]
     end
 
     def forbidden
-      [403, {'Content-Type' => 'text/plain'}, ["Forbidden\n"]]
+      [403, { 'Content-Type' => 'text/plain' }, ["Forbidden\n"]]
     end
 
     def check_modified_since(rack_env, last_modified)
@@ -81,14 +78,14 @@ module Rack
     end
 
     def own_path?(path)
-      path =~ /\.js$/ && urls.any? {|url| path.index(url) == 0}
+      path =~ /\.js$/ && urls.any? { |url| path.index(url).zero? }
     end
 
     def call(env)
-      path = Utils.unescape(env["PATH_INFO"])
+      path = Utils.unescape(env['PATH_INFO'])
       return app.call(env) unless own_path?(path)
       return forbidden if path.include?('..')
-      desired_file = root + path.sub(/\.js$/, '.coffee').sub(%r{^/},'')
+      desired_file = root + path.sub(/\.js$/, '.coffee').sub(%r{^/}, '')
       if concat_to_file == String(desired_file.basename)
         source_files = Pathname.glob("#{desired_file.dirname}/*.coffee")
       elsif desired_file.file?
@@ -96,9 +93,9 @@ module Rack
       else
         return app.call(env)
       end
-      last_modified = source_files.map {|file| file.mtime }.max
+      last_modified = source_files.map(&:mtime).max
       return not_modified if check_modified_since(env, last_modified)
-      brewed = source_files.map{|file| brew(file) }.join("\n")
+      brewed = source_files.map { |file| brew(file) }.join("\n")
       [200, headers_for(last_modified, brewed), [brewed]]
     end
   end
